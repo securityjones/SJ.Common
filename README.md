@@ -1,5 +1,5 @@
-# SJ.BlankSlate
-Visual Studio starter repo for my own projects
+# SJ.Common
+C# library of Web and Xml classes for use in projects
 
 # Owner
 The owner and initiator of this project is Jeff Jones aka twitter.com/@securityjones and blogger on securityjones.com. Happy to engage and discuss the project, so feel free to reach out.

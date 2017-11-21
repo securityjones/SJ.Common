@@ -4,11 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using SJ.Common; // classes being test
+using SJ.Common; // classes being tested
 using System.IO; // for Directory and File
 
 namespace TestUI
 {
+    // class to test Helper.cs
+    //
     class Helper_tests : TestBase
     {
         public override String RunTests()
@@ -84,5 +86,22 @@ namespace TestUI
 
     }
 
-    class Webpage_tests : TestBase { }
+    class Template_tests : TestBase
+    {
+        // required method to run tests
+        //
+        public override String RunTests()
+        {
+            StringBuilder sb = new StringBuilder();
+            String classname = this.GetType().Name;
+
+            sb.AppendLine(String.Format("** begin {0} **", classname));
+
+            //sb.AppendLine(tbd());
+
+            sb.AppendLine(String.Format("** end {0} **", classname));
+
+            return sb.ToString();
+        }
+    }
 }

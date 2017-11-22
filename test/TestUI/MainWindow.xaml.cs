@@ -50,7 +50,7 @@ namespace TestUI
 
             wp.Url = "http://svpetfoodbank.org";
             
-            tbMain.Text = wp.Fetch();
+            tbMain.Text = wp.LoadHtmlDoc();
             */
 
             tbMain.Text = RunAllTests();

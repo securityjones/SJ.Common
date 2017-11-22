@@ -6,11 +6,13 @@ using System.Threading.Tasks;
 
 using SJ.Common; // for Webpage class
 
+using System.Xml.Linq; // for XElement
+
 namespace TestUI
 {
     // class to test methods and capabilities of Webpage.cs
     //
-    class Webpage_tests : TestBase
+    public class Webpage_tests : TestBase
     {
         // required method to run tests
         //
@@ -25,10 +27,22 @@ namespace TestUI
 
             // https://access.redhat.com/security/security-updates/#/security-advisories
             //
-            Webpage wp = new Webpage();
-            wp.Url = @"https://access.redhat.com/security/security-updates/#/security-advisories";
-            wp.Fetch();
-            Console.WriteLine(String.Format("Domain: {0}", wp.Domain));
+            String url1 = @"https://access.redhat.com/security/security-updates/#/security-advisories";
+            String url2 = @"https://securityjones.com";
+                        
+            Webpage wp = new Webpage(url1);
+            wp.UseCache = false;
+            Console.WriteLine(String.Format("Host: {0}", wp.Host));
+            Console.WriteLine(String.Format("Filename: {0}", wp.Filename));
+            XElement xe = wp.ToXElement();
+            String htmlstr = wp.ToString();
+
+            wp = new Webpage(url2);
+            wp.UseCache = false;
+            Console.WriteLine(String.Format("Host: {0}", wp.Host));
+            Console.WriteLine(String.Format("Filename: {0}", wp.Filename));
+            xe = wp.ToXElement();
+            htmlstr = wp.ToString();
 
             sb.AppendLine(String.Format("** end {0} **", classname));
 

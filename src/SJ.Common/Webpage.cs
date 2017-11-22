@@ -4,12 +4,17 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using System.IO; // for Path
+using System.Xml.Linq; // for XElement
+using System.Net; // for WebClient
+
 using HtmlAgilityPack; // for retrieving well-formed web pages
 
-// Settings
+// Settings Notes
 //  Webpage.cs looks for a default folder value as root for where to cache web pages in Common.settings (under Properties)
 //
-using System.Configuration;
+// using System.Configuration; // ?
+using System.Xml; // for XmlWriter
 
 namespace SJ.Common
 {
@@ -48,109 +53,139 @@ namespace SJ.Common
             }
         }
 
-        protected Uri _Uri = null;
-        public String Url
-        {
-            get
-            {
-                // this should always be set as part of Construction
-                return _Uri.AbsoluteUri;
-            }
-            set
-            {
-                // setting it can be done, and it resets everything
-                /*
-                _SiteName = null;
-                _RawSource = null;
-                _SourceText = null;
-                _Filename = null; */
-                _Domain = null;
-                _Uri = new Uri(value);
-            }
-        }
+        protected Uri _Uri = null; // set as part of construction
 
-        //  example: Domain is microsoft.com in http://www.microsoft.com/technet/security/Bulletin/MS07-026.mspx
+        // full Uri
         //
-        protected String _Domain = null;
-        public String Domain
+        public String Url { get { return _Uri.AbsoluteUri; } }
+
+        // UseCache = false means get a copy from the Web only
+        //
+        public bool UseCache = true; // defaults to true
+
+        //  example: Host is www.microsoft.com in http://www.microsoft.com/technet/security/Bulletin/MS07-026.mspx
+        //
+        public String Host { get { return _Uri.Host; } }
+
+        // example: Filename is MS07-026.mspx in http://www.microsoft.com/technet/security/Bulletin/MS07-026.mspx 
+        private String _Filename = null;
+        public String Filename
         {
             get
             {
-                if (_Domain == null)
+                if (String.IsNullOrEmpty(_Filename))
                 {
-                    ParseUrl();
+                    String p = _Uri.AbsolutePath;
+
+                    if (p == "/")
+                        p = "root-index";
+
+                    // check to see if the last character is '/' and remove it 
+                    while (p[p.Length - 1] == '/') p = p.Remove(p.Length - 1);
+
+                    String[] tokens = p.Split('/');
+
+                    _Filename = tokens[tokens.Length - 1];
                 }
-                return _Domain;
+                return _Filename;
             }
         }
 
-        public Webpage()
-        { }
+        // Holder for the original html loaded in a String. Start from this source when loading into 
+        // HmtlAgilityPack docs for manipulation
+        //
+        private String _PageSourceString = null;
+        private String PageSourceString
+        {
+            get
+            {
+                if (_PageSourceString == null)
+                {
+                    String src = Fetch();
+
+                    _PageSourceString = src;
+                }
+                return _PageSourceString;
+            }
+        }
 
         // require URL as part of construction
         //
-        public Webpage(String theurl)
-        {
-            
-            Url = theurl;
+        public Webpage(String url) {
+            _Uri = new Uri(url);
         }
 
-        // chops up the URL and sets _SiteName and _Domain
-        virtual public void ParseUrl()
+        private String Fetch()
         {
-            // sample http://www.microsoft.com/technet/security/Bulletin/MS07-026.mspx
-            String[] tokens = Url.Split('/');
-            String _SiteName = tokens[0] + @"//" + tokens[2];
-            _Domain = HostToDomain(tokens[2]);
+            // if we already have it, just return
+            if (UseCache)
+                if (!String.IsNullOrEmpty(_PageSourceString))
+                    return _PageSourceString;
 
+            // construct the local cache folder and filename
+            String folderpath = Path.Combine(cacheRoot, Host);
+            String filepath = Path.Combine(folderpath, Filename);
+
+            // if we're supposed to get a fresh one, then delete local copy if it exists
+            if ((!UseCache) && (File.Exists(filepath)))
+                File.Delete(filepath);
+
+            if (!File.Exists(filepath))
+            {
+                // we don't have a local copy, so got get it and save it locally
+
+                // make sure the path exists so we can save it
+                SJHelper h = new SJHelper();
+                h.ValidateFolder(folderpath);
+
+                // use WebClient to download, so we preserve original html format
+                WebClient wc = new WebClient();
+                wc.DownloadFile(_Uri, filepath);
+            }
+
+            // there should now be a local copy, so load it
+            //HtmlDocument hd = new HtmlDocument();
+            //hd.Load(filepath);
+            StreamReader sr = new StreamReader(filepath);
+            String htmltext = sr.ReadToEnd().Trim();
+            sr.Close();
+
+            return htmltext;
         }
 
-        public String Fetch() { return Fetch(false); }
-
-        public String Fetch(bool flushcache)
-        {
-            Console.WriteLine(cacheRoot);
-
-            HtmlWeb web = new HtmlWeb();
-
-            var htmlDoc = web.Load(Url);
-            
-
-            var node = htmlDoc.DocumentNode.SelectSingleNode("//head/title");
-
-            return "Node Name: " + node.Name + "\n" + node.OuterHtml;
-        }
-
-        // simple domain extractor that won't work for everything (doubledoms defined by godaddy.com)
+        // return the html as a string
         //
-        // NOTE: Replace with Uri.GetLeftPart(UriPartial.Authority)
-        //
-        protected String HostToDomain(String hostname)
+        public override String ToString()
         {
-            String[] doubledoms = { "com", "co", "net", "org", "nom", "firm", "gen", "ind" };
+            return PageSourceString;
+            /*
+            var htmlDoc = new HtmlDocument();
+            htmlDoc.OptionOutputAsXml = false; // we want html
+            htmlDoc.LoadHtml(PageSourceString);
 
-            // example www.microsoft.com and www.microsoft.co.uk
-
-            // let's just get rid of www., since we don't want it
-            String ws = hostname.Replace("www.", "");
-
-            String[] tokens = ws.Split('.');
-            int len = tokens.Length;
-
-
-            // if we don't have 3 segments, assume it is reduced as much as possible
-            if (tokens.Length < 3) return ws;
-
-            // the 2nd to last token matches a doubledom, use the last 3 segments
-            foreach (String dom in doubledoms)
-                if (tokens[len - 2] == dom)
-                    return tokens[len - 3] + "." + tokens[len - 2] + "." + tokens[len - 1];
-
-            // no previous matches, so just return the last two segments
-            return tokens[len - 2] + "." + tokens[len - 1];
+            using (StringWriter sw = new StringWriter())
+            {
+                htmlDoc.Save(sw);
+                return sw.ToString();
+            }
+            */
         }
+        
+        public XElement ToXElement()
+        {
+            var htmlDoc = new HtmlDocument();
+            htmlDoc.OptionOutputAsXml = true;
+            htmlDoc.LoadHtml(PageSourceString);
 
-
+            using (StringWriter sw = new StringWriter())
+            {
+                htmlDoc.Save(sw);
+                using (StringReader sr = new StringReader(sw.ToString()))
+                {
+                    return XElement.Load(sr);
+                }
+            }
+        }
     }
 
 

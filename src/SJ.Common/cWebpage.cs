@@ -11,14 +11,21 @@ using System.Net; // for WebClient
 using HtmlAgilityPack; // for retrieving well-formed web pages
 
 // Settings Notes
-//  Webpage.cs looks for a default folder value as root for where to cache web pages in Common.settings (under Properties)
+//  cWebpage.cs looks for a default folder value as root for where to cache web pages in Common.settings (under Properties)
 //
 // using System.Configuration; // ?
 using System.Xml; // for XmlWriter
 
 namespace SJ.Common
 {
-    public class Webpage
+    // The cWebpage class is used to cache local copies so that after the page id downloaded once, future references
+    // don't have to be connected to the Internet to access the content. When scraping hundreds or thousands of pages, this is a huge
+    // performance savings. I save the local copy raw so I can manually inspect it if I want or need to
+    //
+    // Access to content is either through ToString() which outputs the original downloaded html or ToXElement() which
+    // provides it in a format compatible with Xml Linq processing, which my tools depend on
+    //
+    public class cWebpage
     {
         // cachePath is read from user Settings and a default is created on the User profile if it isn't 
         protected String _cacheRoot = null;
@@ -48,6 +55,10 @@ namespace SJ.Common
                     // use our helper class to make sure the cache folder exists, or creates it if necessary
                     SJHelper helper = new SJHelper();
                     helper.ValidateFolder(_cacheRoot);
+
+                    // store the Setting for next time
+                    Properties.Common.Default.CacheFolder = _cacheRoot;
+                    Properties.Common.Default.Save();
                 }
                 return _cacheRoot;
             }
@@ -59,9 +70,9 @@ namespace SJ.Common
         //
         public String Url { get { return _Uri.AbsoluteUri; } }
 
-        // UseCache = false means get a copy from the Web only
+        // RefreshContent = true means content from the Web only
         //
-        public bool UseCache = true; // defaults to true
+        public bool RefreshContent = false; // defaults to false
 
         //  example: Host is www.microsoft.com in http://www.microsoft.com/technet/security/Bulletin/MS07-026.mspx
         //
@@ -109,25 +120,45 @@ namespace SJ.Common
             }
         }
 
+        // method to check to see if we were able to get content from the page
+        public bool HasContent
+        {
+            get
+            {
+                if (String.IsNullOrEmpty(PageSourceString)) return false;
+                else return true;
+            }
+        }
+
         // require URL as part of construction
         //
-        public Webpage(String url) {
+        public cWebpage(String url, bool refresh = false) {
+            if (refresh)
+                RefreshContent = true;
+
             _Uri = new Uri(url);
         }
 
-        private String Fetch()
+        // by default do a Fetch, leveraging the value for RefreshContent
+        //
+        private String Fetch() { return Fetch(RefreshContent); }
+
+        // Fetch either loads from a local cache copy of the file or from the web. If from the web, a local copy is always cached
+        // * it is okay to try and retrieve a page that does not exist, but you should check HasContent
+        //
+        private String Fetch(bool refresh)
         {
             // if we already have it, just return
-            if (UseCache)
-                if (!String.IsNullOrEmpty(_PageSourceString))
-                    return _PageSourceString;
+            if (!refresh) // if trying to use cache
+                if (!String.IsNullOrEmpty(_PageSourceString)) 
+                    return _PageSourceString; 
 
             // construct the local cache folder and filename
             String folderpath = Path.Combine(cacheRoot, Host);
             String filepath = Path.Combine(folderpath, Filename);
 
             // if we're supposed to get a fresh one, then delete local copy if it exists
-            if ((!UseCache) && (File.Exists(filepath)))
+            if ((refresh) && (File.Exists(filepath)))
                 File.Delete(filepath);
 
             if (!File.Exists(filepath))
@@ -139,8 +170,15 @@ namespace SJ.Common
                 h.ValidateFolder(folderpath);
 
                 // use WebClient to download, so we preserve original html format
-                WebClient wc = new WebClient();
-                wc.DownloadFile(_Uri, filepath);
+                try
+                {
+                    WebClient wc = new WebClient();
+                    wc.DownloadFile(_Uri, filepath);
+                } catch 
+                {
+                    _PageSourceString = String.Empty;
+                    return String.Empty;
+                }
             }
 
             // there should now be a local copy, so load it
@@ -150,6 +188,13 @@ namespace SJ.Common
             String htmltext = sr.ReadToEnd().Trim();
             sr.Close();
 
+            // if no content && we did not pull from the web, try to pull from the web one more time
+            if (String.IsNullOrEmpty(htmltext))
+                if (!refresh)
+                    return Fetch(true);
+                else
+                    File.Delete(filepath);  // if pulled from web, but no content, don't keep an empty local file
+            
             return htmltext;
         }
 
@@ -157,7 +202,10 @@ namespace SJ.Common
         //
         public override String ToString()
         {
-            return PageSourceString;
+            if (String.IsNullOrEmpty(PageSourceString))
+                return String.Empty;
+            else
+                return PageSourceString;
             /*
             var htmlDoc = new HtmlDocument();
             htmlDoc.OptionOutputAsXml = false; // we want html
@@ -173,8 +221,11 @@ namespace SJ.Common
         
         public XElement ToXElement()
         {
+            if (String.IsNullOrEmpty(PageSourceString))
+                return new XElement("Empty");
+
             var htmlDoc = new HtmlDocument();
-            htmlDoc.OptionOutputAsXml = true;
+            htmlDoc.OptionOutputAsXml = true; // set this option before loading
             htmlDoc.LoadHtml(PageSourceString);
 
             using (StringWriter sw = new StringWriter())

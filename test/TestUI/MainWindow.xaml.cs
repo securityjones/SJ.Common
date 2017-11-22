@@ -35,8 +35,11 @@ namespace TestUI
             Helper_tests t1 = new Helper_tests();
             sb.AppendLine(t1.RunTests());
 
-            Webpage_tests t2 = new Webpage_tests();
+            cWebpage_tests t2 = new cWebpage_tests();
             sb.AppendLine(t2.RunTests());
+
+            Extensions_tests t3 = new Extensions_tests();
+            sb.AppendLine(t3.RunTests());
 
             sb.AppendLine("*** end tests ***");
 
@@ -46,7 +49,7 @@ namespace TestUI
         private void btnRun_Click(object sender, RoutedEventArgs e)
         {
             /*
-            Webpage wp = new Webpage();
+            cWebpage wp = new cWebpage();
 
             wp.Url = "http://svpetfoodbank.org";
             

@@ -54,6 +54,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="Extensions-tests.cs" />
     <Compile Include="Helper-tests.cs" />
     <Compile Include="TestBase.cs" />
     <Compile Include="Webpage-tests.cs" />

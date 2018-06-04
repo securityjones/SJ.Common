@@ -42,7 +42,7 @@ namespace SJ.Common
                     {
                         // choose the default location off of the user profile
 
-                        p = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile); // eg. c:\Users\jrjones
+                        p = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments); // eg. c:\Users\jrjones\Documents
                         String appname = System.AppDomain.CurrentDomain.FriendlyName;  // will be the app name that uses this library
 
                         appname = appname.Replace(".exe", "");

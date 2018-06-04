@@ -60,7 +60,7 @@ namespace SJ.Common
         }
 
         // WebClient extension
-        public static WebClient FavDefaults(this WebClient wc)
+        public static WebClient SetMyDefaults(this WebClient wc)
         {
             String ie11str = "Mozilla/5.0 (Windows NT 6.3; Trident/7.0; rv:11.0) like Gecko"; // Header used by IE11
             wc.Headers.Add("user-agent", ie11str);

@@ -62,7 +62,7 @@ namespace TestUI
 
             using (WebClient wc = new WebClient())
             {
-                wc.FavDefaults();
+                wc.SetMyDefaults();
 
                 String url1 = "http://svpetfoodbank.org";
                 String c = wc.DownloadString(url1);
